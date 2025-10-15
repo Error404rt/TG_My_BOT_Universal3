@@ -143,7 +143,7 @@ async def compress_video_if_needed(input_path: str, output_path: str, max_size=M
 async def process_video_to_circle(input_path: str, chat_id: int, bot):
     """Обрабатывает видео-чанк в кружок с помощью FFmpeg, сжимает до <12 МБ, с валидацией."""
     from aiogram import types  # Локальный импорт
-    from utils.helpers import cleanup_files, send_with_retry  # Локальный импорт
+    from bot.utils.helpers import cleanup_files, send_with_retry  # Локальный импорт
 
     output_path = f"{input_path}_circle.mp4"
     try:
