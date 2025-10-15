@@ -1,0 +1,12 @@
+services:
+  telegram_bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: social-parser-bot
+
+    env_file:
+      - .env
+    volumes:
+      - ./downloads:/app/downloads
+    restart: always
