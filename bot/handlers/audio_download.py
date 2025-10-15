@@ -1,4 +1,5 @@
 import logging
+import shlex
 from aiogram import types
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
@@ -39,7 +40,7 @@ async def process_audio_link(message: types.Message, state: FSMContext):
         await bot.send_message(chat_id, "Видео скачано, обрабатываю аудио для Shazam... 🎧")
 
         # Extract audio
-        extract_audio_cmd = f"ffmpeg -i {video_path} -vn -acodec libmp3lame -q:a 2 {audio_path}"
+        extract_audio_cmd = f"ffmpeg -i {shlex.quote(video_path)} -vn -acodec libmp3lame -q:a 2 {shlex.quote(audio_path)}"
         _, stderr, returncode = await run_ffmpeg_command(extract_audio_cmd)
         if returncode != 0:
             logging.error(f"ffmpeg audio extraction error: {stderr.decode()}")
@@ -52,13 +53,16 @@ async def process_audio_link(message: types.Message, state: FSMContext):
             return
 
         # Shazam audio
-        shazam = Shazam()
-        out = await shazam.recognize_song(audio_path)
         track_info = "Не удалось распознать трек. 🤷‍♀️"
-        if out and 'track' in out:
-            title = out['track'].get('title', 'N/A')
-            subtitle = out['track'].get('subtitle', 'N/A')
-            track_info = f"🎵 Трек: {title} - {subtitle}"
+        try:
+            shazam = Shazam()
+            out = await shazam.recognize_song(audio_path)
+            if out and 'track' in out:
+                title = out['track'].get('title', 'N/A')
+                subtitle = out['track'].get('subtitle', 'N/A')
+                track_info = f"🎵 Трек: {title} - {subtitle}"
+        except Exception as e:
+            logging.warning(f"Shazam recognition failed: {e}")
 
         # Получаем длительность аудио
         duration = await get_audio_duration(audio_path)

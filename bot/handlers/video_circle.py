@@ -2,6 +2,7 @@ import asyncio
 import logging
 import tempfile
 import os
+import shlex
 
 from aiogram import types, F
 from bot.core.config import SLEEP_BETWEEN_CHUNKS, MAX_DURATION_SECONDS
@@ -47,7 +48,7 @@ async def handle_video_message(message: types.Message, bot):
                 chunk_duration = await get_video_duration(chunk_path)
                 if chunk_duration > MAX_DURATION_SECONDS + 1:  # +1 для допуска
                     trimmed_path = f"{chunk_path}.trimmed.mp4"
-                    cmd_trim = f"ffmpeg -i {chunk_path} -t {MAX_DURATION_SECONDS} -c copy {trimmed_path}"
+                    cmd_trim = f"ffmpeg -i {shlex.quote(chunk_path)} -t {MAX_DURATION_SECONDS} -c copy {shlex.quote(trimmed_path)}"
                     await run_ffmpeg_command(cmd_trim)
                     chunk_path = trimmed_path
 

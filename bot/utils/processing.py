@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import shutil
+import shlex
 
 from bot.core.config import MAX_DURATION_SECONDS, MAX_VIDEO_SIZE_BYTES, MAX_FILE_SIZE_BYTES, CIRCLE_SIZE
 from bot.utils.helpers import validate_video_file
@@ -49,7 +50,7 @@ async def run_ffmpeg_command(command: str) -> tuple[bytes, bytes, int]:
 
 async def get_video_duration(video_path: str) -> float:
     """Получает длительность видео с помощью ffprobe."""
-    duration_cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {video_path}"
+    duration_cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {shlex.quote(video_path)}"
     stdout, stderr, returncode = await run_ffmpeg_command(duration_cmd)
     if returncode != 0:
         logging.error(f"ffprobe error: {stderr.decode()}")
@@ -62,7 +63,7 @@ async def get_video_duration(video_path: str) -> float:
 
 async def get_audio_duration(audio_path: str) -> float:
     """Получает длительность аудио с помощью ffprobe."""
-    duration_cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {audio_path}"
+    duration_cmd = f"ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {shlex.quote(audio_path)}"
     stdout, stderr, returncode = await run_ffmpeg_command(duration_cmd)
     if returncode != 0:
         logging.error(f"ffprobe error: {stderr.decode()}")
@@ -84,7 +85,7 @@ async def split_video_chunks(input_path: str, chunk_dir: str, max_duration=MAX_D
         return []
 
     os.makedirs(chunk_dir, exist_ok=True)
-    cmd = f"ffmpeg -i {input_path} -c copy -map 0 -segment_time {max_duration} -f segment -reset_timestamps 1 {chunk_dir}/chunk_%03d.mp4"
+    cmd = f"ffmpeg -i {shlex.quote(input_path)} -c copy -map 0 -segment_time {max_duration} -f segment -reset_timestamps 1 {shlex.quote(chunk_dir)}/chunk_%03d.mp4"
     _, stderr, returncode = await run_ffmpeg_command(cmd)
     if returncode != 0:
         logging.error(f"ffmpeg split error: {stderr.decode()}")
@@ -111,10 +112,10 @@ async def compress_video_if_needed(input_path: str, output_path: str, max_size=M
 
     # Сжатие с первым проходом
     cmd = (
-        f"ffmpeg -i {input_path} "
+        f"ffmpeg -i {shlex.quote(input_path)} "
         f"-vf scale=-2:720 "
         f"-c:v libx264 -crf 28 -c:a aac -b:a 128k "
-        f"{output_path}"
+        f"{shlex.quote(output_path)}"
     )
     _, stderr, returncode = await run_ffmpeg_command(cmd)
     if returncode != 0:
@@ -125,10 +126,10 @@ async def compress_video_if_needed(input_path: str, output_path: str, max_size=M
     new_size = os.path.getsize(output_path)
     if new_size > max_size:
         cmd2 = (
-            f"ffmpeg -i {output_path} "
+            f"ffmpeg -i {shlex.quote(output_path)} "
             f"-vf scale=-2:480 "
             f"-c:v libx264 -crf 32 -c:a aac -b:a 64k "
-            f"{output_path}.temp.mp4"
+            f"{shlex.quote(output_path)}.temp.mp4"
         )
         await run_ffmpeg_command(cmd2)
         os.replace(f"{output_path}.temp.mp4", output_path)
@@ -149,10 +150,10 @@ async def process_video_to_circle(input_path: str, chat_id: int, bot):
     try:
         # Основная команда: crop в квадрат, scale, pad, compress
         cmd_crop = (
-            f"ffmpeg -i {input_path} "
+            f"ffmpeg -i {shlex.quote(input_path)} "
             f"-vf 'crop=min(iw\\,ih):min(iw\\,ih),scale={CIRCLE_SIZE}:{CIRCLE_SIZE}:force_original_aspect_ratio=decrease,pad={CIRCLE_SIZE}:{CIRCLE_SIZE}:(ow-iw)/2:(oh-ih)/2:black,setsar=1' "
             f"-c:v libx264 -crf 28 -c:a aac -b:a 64k -t {MAX_DURATION_SECONDS} "
-            f"-pix_fmt yuv420p -movflags +faststart {output_path}"
+            f"-pix_fmt yuv420p -movflags +faststart {shlex.quote(output_path)}"
         )
         _, stderr, returncode = await run_ffmpeg_command(cmd_crop)
         if returncode != 0:
@@ -166,10 +167,10 @@ async def process_video_to_circle(input_path: str, chat_id: int, bot):
             logging.warning(f"File too large: {final_size} bytes. Compressing further.")
             temp_path = f"{output_path}.temp.mp4"
             cmd_compress = (
-                f"ffmpeg -i {output_path} "
+                f"ffmpeg -i {shlex.quote(output_path)} "
                 f"-vf scale=480:480 "
                 f"-c:v libx264 -crf 32 -c:a aac -b:a 48k "
-                f"{temp_path}"
+                f"{shlex.quote(temp_path)}"
             )
             _, stderr, returncode = await run_ffmpeg_command(cmd_compress)
             if returncode != 0:
