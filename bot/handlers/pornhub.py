@@ -2,21 +2,22 @@ import asyncio
 import logging
 import tempfile
 import shutil
+import re
+import json
 from aiogram import types
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 import yt_dlp
 import youtube_dl
+import requests
+from bs4 import BeautifulSoup
 import os
 
 from bot.core.states import PHStates
-from bot.core.config import SLEEP_BETWEEN_CHUNKS
-from bot.utils.helpers import cleanup_files, download_with_retry, send_with_retry
-from bot.utils.processing import get_video_duration, split_video_chunks, compress_video_if_needed
-
+from bot.utils.helpers import send_with_retry
 
 async def cmd_ph_download(message: types.Message, state: FSMContext):
-    await message.answer("Отправьте ссылку на Pornhub видео. Я скачаю и отправлю готовые MP4-чанки. 🔥")
+    await message.answer("Отправьте ссылку на Pornhub видео. Я скачаю и отправлю полное видео или ссылку. 🔥")
     await state.set_state(PHStates.waiting_for_link)
 
 
@@ -26,88 +27,127 @@ async def process_ph_link(message: types.Message, state: FSMContext):
     link = message.text
     chat_id = message.chat.id
     temp_dir = tempfile.mkdtemp()
-    # Примечание: outtmpl должен включать temp_dir
-    video_path_template = os.path.join(temp_dir, "%(title)s.%(ext)s")
-    video_path = None  # Будет установлено после скачивания
-
-    success = False
+    video_path = None
     method_used = ""
 
     try:
-        # Метод 1: yt-dlp с retry
-        ydl_opts = {
-            'format': 'best[height<=720][ext=mp4]',
-            'outtmpl': video_path_template,
-            'noplaylist': True,
-        }
-        downloaded_path = await download_with_retry(yt_dlp, ydl_opts, link)
-        if downloaded_path:
-            video_path = downloaded_path
-            success = True
-            method_used = "yt-dlp"
-        else:
-            # Метод 2: youtube-dl с retry (fallback)
-            ydl_opts['outtmpl'] = video_path_template  # Важно, чтобы template был правильный
-            downloaded_path = await download_with_retry(youtube_dl, ydl_opts, link)
-            if downloaded_path:
-                video_path = downloaded_path
-                success = True
-                method_used = "youtube-dl"
+        # Метод 1: yt-dlp
+        try:
+            await bot.send_message(chat_id, "Пытаюсь скачать через yt-dlp... 🔧")
+            video_path_template = os.path.join(temp_dir, "%(title)s.%(ext)s")
+            ydl_opts = {
+                'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
+                'outtmpl': video_path_template,
+                'noplaylist': True,
+                'quiet': True,
+                'no_warnings': True,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(link, download=True)
+                video_path = ydl.prepare_filename(info)
+                if os.path.exists(video_path) and os.path.getsize(video_path) > 10240:
+                    method_used = "yt-dlp"
+                    await bot.send_message(chat_id, f"Скачано с {method_used}! Отправляю видео... ✅")
+                else:
+                    video_path = None
+        except Exception as e:
+            logging.warning(f"yt-dlp failed: {e}")
+            video_path = None
 
-        if not success or not video_path:
+        # Метод 2: youtube-dl (fallback)
+        if not video_path:
+            try:
+                await bot.send_message(chat_id, "Пытаюсь скачать через youtube-dl (fallback)... 🔧")
+                video_path_template = os.path.join(temp_dir, "%(title)s.%(ext)s")
+                ydl_opts = {
+                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
+                    'outtmpl': video_path_template,
+                    'noplaylist': True,
+                    'quiet': True,
+                    'no_warnings': True,
+                }
+                with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(link, download=True)
+                    video_path = ydl.prepare_filename(info)
+                    if os.path.exists(video_path) and os.path.getsize(video_path) > 10240:
+                        method_used = "youtube-dl"
+                        await bot.send_message(chat_id, f"Скачано с {method_used}! Отправляю видео... ✅")
+                    else:
+                        video_path = None
+            except Exception as e:
+                logging.warning(f"youtube-dl failed: {e}")
+                video_path = None
+
+        # Метод 3: Прямой парсинг (direct parsing)
+        if not video_path:
+            try:
+                await bot.send_message(chat_id, "Пытаюсь получить прямую ссылку через парсинг... 🔗")
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+                response = requests.get(link, headers=headers, timeout=30)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # Найти скрипт с данными о видео
+                player_config_script = soup.find('script', text=re.compile('flashvars'))
+                if player_config_script:
+                    player_config_str = player_config_script.string
+                    # Извлечь JSON часть
+                    match = re.search(r'var flashvars[^=]*=\s*(\{.*?\});', player_config_str, re.DOTALL)
+                    if match:
+                        flashvars_json = match.group(1)
+                        flashvars = json.loads(flashvars_json)
+
+                        # Извлечь ссылки на видео
+                        media_definitions = flashvars.get('mediaDefinitions', [])
+                        video_urls = []
+                        for media_def in media_definitions:
+                            if media_def.get('videoUrl'):
+                                video_urls.append(media_def['videoUrl'])
+                            elif media_def.get('quality'):
+                                # Иногда ссылки находятся в другом формате
+                                for quality_item in media_def.get('quality', []):
+                                    if quality_item.get('videoUrl'):
+                                        video_urls.append(quality_item['videoUrl'])
+
+                        if video_urls:
+                            # Возвращаем самую качественную (последнюю) ссылку
+                            direct_link = video_urls[-1]
+                            method_used = "direct_parsing"
+                            await bot.send_message(chat_id, f"Нашел прямую ссылку через {method_used}! 🎉\n\n{direct_link}")
+                            return
+
+                await bot.send_message(chat_id, "Не удалось найти прямую ссылку через парсинг. 😔")
+            except Exception as e:
+                logging.warning(f"Direct parsing failed: {e}")
+
+        # Если ничего не сработало
+        if not video_path:
             await bot.send_message(chat_id,
                                    "Не удалось скачать ни одним методом после попыток. Попробуй другую ссылку. ❌")
             return
 
-        await bot.send_message(chat_id, f"Скачано с {method_used}! Обрабатываю... ✅")
-
-        duration = await get_video_duration(video_path)
-        file_size = os.path.getsize(video_path)
-        await bot.send_message(chat_id, f"Видео: {duration:.1f} сек, {file_size // 1024 // 1024} МБ.")
-
-        with tempfile.TemporaryDirectory() as chunk_dir:
-            chunks = await split_video_chunks(video_path, chunk_dir)
-            if not chunks:
-                await bot.send_message(chat_id, "Ошибка при разрезке. 😔")
-                return
-
-            num_chunks = len(chunks)
-            if num_chunks > 1:
-                await bot.send_message(chat_id,
-                                       f"Длинное видео! Разделил на {num_chunks} чанков по 60 сек. Отправляю по одному... ✂️")
-
-            for i, chunk_path in enumerate(chunks, 1):
-                if num_chunks > 1:
-                    await bot.send_message(chat_id, f"Подготавливаю чанк {i}/{num_chunks}...")
-
-                processed_path = f"{chunk_path}_processed.mp4"
-                if not await compress_video_if_needed(chunk_path, processed_path):
-                    await bot.send_message(chat_id, f"Не удалось сжать чанк {i}. Пропускаю. 😔")
-                    continue
-
-                chunk_duration = await get_video_duration(processed_path)
-                caption = f"Чанк {i}/{num_chunks} из Pornhub ({method_used}) | Длительность: {chunk_duration:.1f} сек"
-                await send_with_retry(
-                    bot.send_video,
-                    chat_id,
-                    video=types.FSInputFile(processed_path),
-                    caption=caption,
-                    supports_streaming=True
-                )
-                await asyncio.sleep(SLEEP_BETWEEN_CHUNKS)
-                await cleanup_files(processed_path)  # Удаляем обработанный чанк после отправки
-
-            await bot.send_message(chat_id, "Все чанки отправлены! Готово. 🎉")
+        # Отправляем полное видео
+        await send_with_retry(
+            bot.send_video,
+            chat_id,
+            video=types.FSInputFile(video_path),
+            caption=f"Видео с Pornhub ({method_used})",
+            supports_streaming=True
+        )
+        await bot.send_message(chat_id, "Видео отправлено! Готово. 🎉")
 
     except Exception as e:
         logging.error(f"Error processing PH link: {e}")
         await bot.send_message(chat_id, "Общая ошибка при скачивании/обработке. ❌")
     finally:
-        # cleanup_files(video_path) уже не нужен, так как используется tempfile
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
         await state.clear()
 
 
 def register_ph_handlers(dp):
     dp.message.register(cmd_ph_download, Command("ph_v_d"))
     dp.message.register(process_ph_link, PHStates.waiting_for_link)
+
