@@ -13,18 +13,26 @@
 2) установка Ubuntu (я использую от этого разработчика jorexdeveloper)
 ```powershell pkg update -y && pkg upgrade -y && pkg install -y curl && curl -fsSLO https://raw.githubusercontent.com/jorexdeveloper/termux-ubuntu/main/install-ubuntu.sh && bash install-ubuntu.sh```
 это установит автоматические Proot Ubuntu запустите командой ub
-вам потребуется установить такой пакет для установки python3.11
+
+3) вам потребуется установить такой пакет для установки python3.11
 ```powershell sudo apt install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev git```
-3) создайте виртуальную среду (venv)
+
+4) создайте виртуальную среду (venv)
 например:
 ```mkdir my_bot && cd my_bot```
-создать venv
+
+5) создать venv
 ```python3.11 -m venv venv```
-активация
+
+6) активация
 ```source venv/bin/activate```
-установка зависимости 
+
+7) установка зависимости 
 ```pip install -r requirements.txt```
-запуск бота
+
+8) запуск бота
 ```poetry install poetry run python main.py```
+
 а при следующем запуске
 ```poetry run python main.py```
+
