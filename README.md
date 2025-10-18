@@ -11,11 +11,11 @@
 #ИНСТРУКЦИЯ
 1) вам потребуется Termux c F-droid
 2) установка Ubuntu (я использую от этого разработчика jorexdeveloper)
-```powershell pkg update -y && pkg upgrade -y && pkg install -y curl && curl -fsSLO https://raw.githubusercontent.com/jorexdeveloper/termux-ubuntu/main/install-ubuntu.sh && bash install-ubuntu.sh```
+```pkg update -y && pkg upgrade -y && pkg install -y curl && curl -fsSLO https://raw.githubusercontent.com/jorexdeveloper/termux-ubuntu/main/install-ubuntu.sh && bash install-ubuntu.sh```
 это установит автоматические Proot Ubuntu запустите командой ub
 
 3) вам потребуется установить такой пакет для установки python3.11
-```powershell sudo apt install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev git```
+```sudo apt install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncursesw5-dev xz-utils tk-dev libffi-dev liblzma-dev git```
 
 4) создайте виртуальную среду (venv)
 например:
@@ -35,4 +35,5 @@
 
 а при следующем запуске
 ```poetry run python main.py```
+
 
