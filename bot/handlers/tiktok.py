@@ -55,7 +55,7 @@ async def process_tiktok_link(message: types.Message, state: FSMContext):
         track_info = "Не удалось распознать трек. 🤷‍♀️"
         try:
             shazam = Shazam()
-            out = await shazam.recognize_song(audio_path)
+            out = await shazam.recognize(audio_path)
             if out and 'track' in out:
                 title = out['track'].get('title', 'N/A')
                 subtitle = out['track'].get('subtitle', 'N/A')
