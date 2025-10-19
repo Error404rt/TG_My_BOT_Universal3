@@ -6,7 +6,7 @@ Provides various image processing options via interactive buttons.
 import logging
 import os
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, BufferedInputFile
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -145,7 +145,7 @@ async def process_spiral_image(callback: CallbackQuery, state: FSMContext):
         
         await callback.message.bot.send_photo(
             callback.from_user.id,
-            photo=image_bytes,
+            photo=BufferedInputFile(image_bytes, filename="processed_image.png"),
             caption="✅ Спиральная обработка завершена!"
         )
         
@@ -183,7 +183,7 @@ async def process_square_grid(callback: CallbackQuery, state: FSMContext):
         
         await callback.message.bot.send_photo(
             callback.from_user.id,
-            photo=image_bytes,
+            photo=BufferedInputFile(image_bytes, filename="processed_image.png"),
             caption="✅ Квадратная сетка завершена!"
         )
         
@@ -221,7 +221,7 @@ async def process_hexagon_grid(callback: CallbackQuery, state: FSMContext):
         
         await callback.message.bot.send_photo(
             callback.from_user.id,
-            photo=image_bytes,
+            photo=BufferedInputFile(image_bytes, filename="processed_image.png"),
             caption="✅ Шестиугольная сетка завершена!"
         )
         
@@ -259,7 +259,7 @@ async def process_triangle_grid(callback: CallbackQuery, state: FSMContext):
         
         await callback.message.bot.send_photo(
             callback.from_user.id,
-            photo=image_bytes,
+            photo=BufferedInputFile(image_bytes, filename="processed_image.png"),
             caption="✅ Треугольная сетка завершена!"
         )
         
@@ -297,7 +297,7 @@ async def process_diamond_grid(callback: CallbackQuery, state: FSMContext):
         
         await callback.message.bot.send_photo(
             callback.from_user.id,
-            photo=image_bytes,
+            photo=BufferedInputFile(image_bytes, filename="processed_image.png"),
             caption="✅ Ромбовая сетка завершена!"
         )
         
@@ -335,7 +335,7 @@ async def process_pentagon_grid(callback: CallbackQuery, state: FSMContext):
         
         await callback.message.bot.send_photo(
             callback.from_user.id,
-            photo=image_bytes,
+            photo=BufferedInputFile(image_bytes, filename="processed_image.png"),
             caption="✅ Пятиугольная сетка завершена!"
         )
         
@@ -374,7 +374,7 @@ async def process_double_spiral(callback: CallbackQuery, state: FSMContext):
         
         await callback.message.bot.send_photo(
             callback.from_user.id,
-            photo=image_bytes,
+            photo=BufferedInputFile(image_bytes, filename="processed_image.png"),
             caption="✅ Двойная спираль завершена!"
         )
         
