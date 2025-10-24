@@ -1,8 +1,3 @@
-"""
-Handler for image conversion and artistic effects.
-Provides various image processing options via interactive buttons.
-"""
-
 import logging
 import os
 from aiogram import Router, F
@@ -34,7 +29,7 @@ class ImageProcessingState(StatesGroup):
     waiting_for_second_image = State()
 
 
-@router.message(Command("phone_converter"))
+@router.message(Command("/phone_converter"))
 async def start_image_converter(message: Message, state: FSMContext):
     """Start the image converter command"""
     try:
@@ -356,14 +351,36 @@ async def process_pentagon_grid(callback: CallbackQuery, state: FSMContext):
 async def process_double_spiral(callback: CallbackQuery, state: FSMContext):
     """Process image with double spiral effect"""
     try:
-        await callback.message.edit_text("⏳ Обработка изображения...")
+        await callback.message.edit_text("⏳ Загрузите второе изображение для двойной спирали...")
+        await state.set_state(ImageProcessingState.waiting_for_second_image)
+    except Exception as e:
+        logger.error(f"Error in process_double_spiral: {e}")
+        await callback.message.edit_text("❌ Ошибка при подготовке двойной спирали.")
+        await state.clear()
+
+
+@router.message(ImageProcessingState.waiting_for_second_image, F.photo)
+async def receive_second_image(message: Message, state: FSMContext):
+    """Receive second image for double spiral effect"""
+    try:
+        await message.answer("⏳ Обработка изображений...")
+        
+        # Download the second photo
+        photo = message.photo[-1]
+        file_info = await message.bot.get_file(photo.file_id)
+        
+        temp_dir = "./downloads"
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_file_2 = os.path.join(temp_dir, f"temp_image_2_{message.from_user.id}.jpg")
+        
+        await message.bot.download_file(file_info.file_path, temp_file_2)
         
         data = await state.get_data()
-        image_path = data.get("image_path")
+        image_path_1 = data.get("image_path")
         
         result_image = create_double_spiral_image(
-            image_path,
-            image_path2=None,
+            image_path_1,
+            image_path_2=temp_file_2,
             spiral_thickness=2,
             spiral_turns=50,
             size=300,
@@ -372,27 +389,33 @@ async def process_double_spiral(callback: CallbackQuery, state: FSMContext):
         
         image_bytes = save_image_to_bytes(result_image)
         
-        await callback.message.bot.send_photo(
-            callback.from_user.id,
+        await message.bot.send_photo(
+            message.from_user.id,
             photo=BufferedInputFile(image_bytes, filename="processed_image.png"),
             caption="✅ Двойная спираль завершена!"
         )
         
-        await callback.message.delete()
-        
-        if os.path.exists(image_path):
-            os.remove(image_path)
+        if os.path.exists(image_path_1):
+            os.remove(image_path_1)
+        if os.path.exists(temp_file_2):
+            os.remove(temp_file_2)
         
         await state.clear()
     
     except Exception as e:
-        logger.error(f"Error in process_double_spiral: {e}")
-        await callback.message.edit_text("❌ Ошибка при обработке изображения.")
+        logger.error(f"Error in receive_second_image: {e}")
+        await message.answer("❌ Ошибка при обработке второй спирали.")
         await state.clear()
 
 
-@router.message(ImageProcessingState.waiting_for_image)
-async def invalid_input(message: Message):
-    """Handle invalid input"""
-    await message.answer("❌ Пожалуйста, отправьте изображение (фото).")
+@router.message(F.text, ImageProcessingState.waiting_for_image)
+async def handle_text_instead_of_image(message: Message):
+    """Handle cases where user sends text instead of image"""
+    await message.answer("Пожалуйста, отправьте изображение для обработки.")
+
+
+@router.message(F.text, ImageProcessingState.waiting_for_second_image)
+async def handle_text_instead_of_second_image(message: Message):
+    """Handle cases where user sends text instead of second image"""
+    await message.answer("Пожалуйста, отправьте второе изображение для двойной спирали.")
 
