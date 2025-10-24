@@ -4,7 +4,7 @@ import os
 import shutil
 
 import yt_dlp
-import youtube_dl
+
 
 from bot.core.config import MIN_FILE_SIZE_BYTES, RETRY_DOWNLOAD_ATTEMPTS, RETRY_SEND_ATTEMPTS
 
