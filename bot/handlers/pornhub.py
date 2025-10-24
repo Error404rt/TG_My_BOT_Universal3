@@ -8,7 +8,7 @@ from aiogram import types
 from aiogram.filters.command import Command
 from aiogram.fsm.context import FSMContext
 import yt_dlp
-import youtube_dl
+
 import requests
 from bs4 import BeautifulSoup
 import os
@@ -54,29 +54,7 @@ async def process_ph_link(message: types.Message, state: FSMContext):
             logging.warning(f"yt-dlp failed: {e}")
             video_path = None
 
-        # Метод 2: youtube-dl (fallback)
-        if not video_path:
-            try:
-                await bot.send_message(chat_id, "Пытаюсь скачать через youtube-dl (fallback)... 🔧")
-                video_path_template = os.path.join(temp_dir, "%(title)s.%(ext)s")
-                ydl_opts = {
-                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]',
-                    'outtmpl': video_path_template,
-                    'noplaylist': True,
-                    'quiet': True,
-                    'no_warnings': True,
-                }
-                with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(link, download=True)
-                    video_path = ydl.prepare_filename(info)
-                    if os.path.exists(video_path) and os.path.getsize(video_path) > 10240:
-                        method_used = "youtube-dl"
-                        await bot.send_message(chat_id, f"Скачано с {method_used}! Отправляю видео... ✅")
-                    else:
-                        video_path = None
-            except Exception as e:
-                logging.warning(f"youtube-dl failed: {e}")
-                video_path = None
+
 
         # Метод 3: Прямой парсинг (direct parsing)
         if not video_path:
