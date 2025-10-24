@@ -221,6 +221,147 @@ def create_hexagon_points(cx, cy, size):
     return points
 
 
+def create_triangle_grid_image(image_path, grid_size=50, size=300, n_shades=16, 
+                              invert=False, col_line=(0, 0, 0), col_bg=(255, 255, 255)):
+    """
+    Create a triangle grid image effect.
+    """
+    try:
+        gray_img, gray_array = process_image_to_grayscale(image_path, size, n_shades, invert)
+        
+        # Create output image
+        output = Image.new('RGB', (size, size), col_bg)
+        draw = ImageDraw.Draw(output, 'RGBA')
+        
+        # Create triangle grid
+        cell_size = size // grid_size
+        thin = 0.5
+        thick = 2
+        
+        for y in range(0, size, cell_size):
+            for x in range(0, size, cell_size):
+                if y < size and x < size:
+                    brightness = gray_array[y, x]
+                    normalized = brightness / 255.0
+                    line_thickness = int(thin + (thick - thin) * (1 - normalized))
+                    line_thickness = max(1, line_thickness)
+                    
+                    # Draw triangle
+                    x1, y1 = x, y
+                    x2, y2 = x + cell_size, y
+                    x3, y3 = x + cell_size // 2, y + cell_size
+                    
+                    triangle = [(x1, y1), (x2, y2), (x3, y3)]
+                    draw.polygon(triangle, outline=col_line, width=line_thickness)
+        
+        return output
+    
+    except Exception as e:
+        logger.error(f"Error creating triangle grid image: {e}")
+        raise
+
+
+def create_diamond_grid_image(image_path, grid_size=50, size=300, n_shades=16, 
+                              invert=False, col_line=(0, 0, 0), col_bg=(255, 255, 255)):
+    """
+    Create a diamond/rhombus grid image effect.
+    """
+    try:
+        gray_img, gray_array = process_image_to_grayscale(image_path, size, n_shades, invert)
+        
+        # Create output image
+        output = Image.new('RGB', (size, size), col_bg)
+        draw = ImageDraw.Draw(output, 'RGBA')
+        
+        # Create diamond grid
+        cell_size = size // grid_size
+        thin = 0.5
+        thick = 2
+        
+        for y in range(0, size, cell_size):
+            for x in range(0, size, cell_size):
+                if y < size and x < size:
+                    brightness = gray_array[y, x]
+                    normalized = brightness / 255.0
+                    line_thickness = int(thin + (thick - thin) * (1 - normalized))
+                    line_thickness = max(1, line_thickness)
+                    
+                    # Draw diamond
+                    cx = x + cell_size // 2
+                    cy = y + cell_size // 2
+                    diamond = [
+                        (cx, y),
+                        (x + cell_size, cy),
+                        (cx, y + cell_size),
+                        (x, cy)
+                    ]
+                    draw.polygon(diamond, outline=col_line, width=line_thickness)
+        
+        return output
+    
+    except Exception as e:
+        logger.error(f"Error creating diamond grid image: {e}")
+        raise
+
+
+def create_pentagon_grid_image(image_path, grid_size=50, size=300, n_shades=16, 
+                              invert=False, col_line=(0, 0, 0), col_bg=(255, 255, 255)):
+    """
+    Create a pentagon grid image effect.
+    """
+    try:
+        gray_img, gray_array = process_image_to_grayscale(image_path, size, n_shades, invert)
+        
+        # Create output image
+        output = Image.new('RGB', (size, size), col_bg)
+        draw = ImageDraw.Draw(output, 'RGBA')
+        
+        # Create pentagon grid
+        pentagon_size = size / grid_size
+        thin = 0.5
+        thick = 2
+        
+        for y in range(0, size, int(pentagon_size * 1.5)):
+            for x in range(0, size, int(pentagon_size * 1.5)):
+                if y < size and x < size:
+                    brightness = gray_array[min(y, size-1), min(x, size-1)]
+                    normalized = brightness / 255.0
+                    line_thickness = int(thin + (thick - thin) * (1 - normalized))
+                    line_thickness = max(1, line_thickness)
+                    
+                    # Draw pentagon
+                    pentagon_points = create_pentagon_points(x, y, pentagon_size)
+                    if pentagon_points:
+                        draw.polygon(pentagon_points, outline=col_line, width=line_thickness)
+        
+        return output
+    
+    except Exception as e:
+        logger.error(f"Error creating pentagon grid image: {e}")
+        raise
+
+
+def create_pentagon_points(cx, cy, size):
+    """Create points for a pentagon centered at (cx, cy)"""
+    points = []
+    for i in range(5):
+        angle = (i * 72 - 90) * np.pi / 180
+        x = cx + size * np.cos(angle)
+        y = cy + size * np.sin(angle)
+        points.append((x, y))
+    return points
+
+
+def save_image_to_bytes(image, format='PNG'):
+    """
+    Save PIL Image to bytes.
+    """
+    img_bytes = io.BytesIO()
+    image.save(img_bytes, format=format)
+    img_bytes.seek(0)
+    return img_bytes.getvalue()
+
+
 def create_double_spiral_image(image_path1, image_path2=None, spiral_thickness=2, 
                               spiral_turns=50, size=300, n_shades=16, 
                               col_line1=(255, 0, 0), col_line2=(0, 0, 255), 
