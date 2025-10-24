@@ -442,3 +442,4 @@ def save_image_to_bytes(image, format='PNG'):
     image.save(img_bytes, format=format)
     img_bytes.seek(0)
     return img_bytes.getvalue()
+
